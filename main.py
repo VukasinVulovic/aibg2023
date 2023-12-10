@@ -24,7 +24,7 @@ def main():
     while not client.game_state.is_over: #sve do kraja
         player.handle_state() #pokreni logiku za trenutno stanje
         
-        print(f"Player position: {player.position}, state: {player.state}, HP: {player.health}") #ispisi info
+        print(f"Player position: {player.position}, targeting: {player.target_position}, state: {player.state}, HP: {player.health}") #ispisi info
 
         if client.game_state.is_over:
             print(f"Game Over, DID WE WIN?")

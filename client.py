@@ -4,7 +4,7 @@ from helpers import *
 import json
 
 AXIS_TILE_COUNT=29 #broj celija po x i y osi
-TEST_MODE = True #tokom testiranja, staviti na True (kreira 4 igraca)
+TEST_MODE = False #tokom testiranja, staviti na True (kreira 4 igraca)
 
 REQUEST_TIMEOUT = 180 #timeout za API request
 
@@ -161,9 +161,6 @@ class Client:
             raise RuntimeError(f"Could not join game, {res.status_code}, {res.text}")
 
         res_json = res.json()
-
-        with open("./sample_data/gameState.json", "r") as f:
-            res_json = json.loads(f.read())
 
         self.id = res_json["playerIdx"]
 

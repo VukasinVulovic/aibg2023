@@ -5,7 +5,7 @@ import time
 SERVER_ADDRESS  = "134.209.240.184:8081"
 CREDS           = Cred("Innovex", "BSQYcUyd87")
 MAP_NAME        = "test1.txt"
-MOVE_TIMEOUT    = 0.2 #broj sekundi izmedju poteza
+MOVE_TIMEOUT    = 2 #broj sekundi izmedju poteza
 
 def main():    
     client = Client(SERVER_ADDRESS, creds=CREDS)

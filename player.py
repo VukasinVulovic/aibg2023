@@ -35,7 +35,7 @@ class Player:
         self.position = client.game_state.our_pos
 
         chest_pos = self.get_chest_position() #nadji poziciju svog chest-a i idi ka njemu
-        self.seek_target(chest_pos)
+        self.seek_target(chest_pos.position)
 
     def seek_target(self, postition: GamePosition): #postavi cilj pomeranja
         self.target_position = GamePosition(min([postition.q, AXIS_TILE_COUNT]), min(postition.r, AXIS_TILE_COUNT)) #pozicija ili ivica mape
@@ -43,7 +43,7 @@ class Player:
 
     # def seek_shelter(self): #bezi od neprijatelja
 
-    def get_next_movable_tile(self, end_position: GamePosition): #sledece polje ka cilju koje smemo da zgazimo
+    def get_next_movable_tile(self, end_position: GamePosition) -> Tile: #sledece polje ka cilju koje smemo da zgazimo
         if self.__client is None:
             raise RuntimeError("Cient not initialized!")
         
@@ -72,7 +72,7 @@ class Player:
         if self.__client is None:
             raise RuntimeError("Cient not initialized!")
         
-        tiles = filter(lambda t: t.entity_on_tile is not None and t.entity_on_tile.entity_type is EntityType.CHEST and t.entity_on_tile.attrs["idx"] is self.__client.id, self.__client.tiles.values()) #polja sa nasim chestom
+        tiles = list(filter(lambda t: t.entity_on_tile is not None and t.entity_on_tile.entity_type is EntityType.CHEST and t.entity_on_tile.attrs["idx"] is self.__client.id, self.__client.tiles.values())) #polja sa nasim chestom
 
         return tiles[0] #privo i jedino polje sa nsim chestom
 
@@ -158,13 +158,14 @@ class Player:
                         self.target_position = weakling.position
                         self.state = PlayerState.ATTACK
 
-        if not self.is_legal(self.state, self.target_position):
-            raise IllegalActionError(self.state, "Internal legality check failed.", self.target_position)
 
+        if not self.is_legal(self.state, self.target_position) and self.state is not PlayerState.SEEK: #don't check seek
+            raise IllegalActionError(self.state, "Internal legality check failed.", self.target_position)
+        
         match self.state:
             case PlayerState.SEEK:
                 next_tile = self.get_next_movable_tile(self.target_position) #sledece polje ka cilju na koje moze da se stane
-                self.__client.player_do_action(Action.MOVE, next_tile) #idi na sledece polje
+                self.__client.player_do_action(Action.MOVE, next_tile.position) #idi na sledece polje
 
             case PlayerState.ATTACK:
                 if tile_dist(self.position, self.target_position) == 1: #ako je blizu protivnika koga zeli da ubije
@@ -173,8 +174,8 @@ class Player:
                     self.state = PlayerState.SEEK
 
             case PlayerState.EVADE:
-                stone_pos = self.get_closest_tile_with_entity(EntityType.STONE)
-                self.seek_target(stone_pos)
+                stone = self.get_closest_tile_with_entity(EntityType.STONE)
+                self.seek_target(stone.position)
 
             case _:
                 raise RuntimeError(f"Unknown player state {self.state}")

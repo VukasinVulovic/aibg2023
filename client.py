@@ -162,17 +162,20 @@ class Client:
 
         res_json = res.json()
 
+        with open("./sample_data/gameState.json", "r") as f:
+            res_json = json.loads(f.read())
+
         self.id = res_json["playerIdx"]
 
         state = self.__parse_state_response(res_json)
         self.game_state = state
+        self.tiles = self.game_state.tiles
     
     def game_join(self, map_name): #kreiraj igricu, udji
         self.map_name = map_name         
 
         if TEST_MODE: #ukoliko je test mod, kreiraj igricu (ovo je endpoint za admine))
             self.__create_game()
-            
 
             for i in range(0, 4):
                 self.__token = self.__test_tokens[i] #privremeno postavi token za bota sa id(x)
@@ -199,6 +202,7 @@ class Client:
         
         state = self.__parse_state_response(res_json)
         self.game_state = state
+        self.tiles = self.game_state.tiles
     
     def get_tile(self, position: GamePosition) -> Tile: #uzmi polje po poziciji
         return self.tiles[tile_id(position)]

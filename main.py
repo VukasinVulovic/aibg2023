@@ -5,7 +5,7 @@ import time
 SERVER_ADDRESS  = "134.209.240.184:8081"
 CREDS           = Cred("Innovex", "BSQYcUyd87")
 MAP_NAME        = "test1.txt"
-MOVE_TIMEOUT    = 3 #broj sekundi izmedju poteza
+MOVE_TIMEOUT    = 0.2 #broj sekundi izmedju poteza
 
 def main():    
     client = Client(SERVER_ADDRESS, creds=CREDS)
@@ -14,7 +14,7 @@ def main():
 
     if input("Join game? ").lower() not in ("yes", "y"): #da li da bot udje u igru nakon auth
         exit(0)
-    
+
     client.game_join(MAP_NAME)
 
     print(f"Successfully joined map {client.map_name} as player #{client.id}")
@@ -30,6 +30,7 @@ def main():
             print(f"Game Over, DID WE WIN?")
 
         time.sleep(MOVE_TIMEOUT) #spavaj (x)sekundi
+        print("STEP")
 
 if __name__ == "__main__":
     print("""

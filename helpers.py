@@ -1,7 +1,7 @@
 from custom_types import *
 
 def translate_pos(curr_pos: GamePosition, to_direction: Direction) -> GamePosition:
-    return GamePosition(curr_pos.q+to_direction.value[0], curr_pos.q+to_direction.value[1])
+    return GamePosition(curr_pos.q+to_direction.value[0], curr_pos.r+to_direction.value[1])
 
 def tile_dist(pos1: GamePosition, pos2: GamePosition) -> int:
     return (abs(pos1.q - pos2.q) + abs(pos1.q + pos1.r - pos2.q - pos2.r) + abs(pos1.q - pos2.r)) // 2

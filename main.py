@@ -2,8 +2,8 @@ from client import *
 from player import Player
 import time
 
-SERVER_ADDRESS  = "134.209.240.184:8081"
-CREDS           = Cred("Innovex", "BSQYcUyd87")
+SERVER_ADDRESS  = "134.209.244.186:8081"
+CREDS           = Cred("Innovex", "---")
 MAP_NAME        = "test1.txt"
 MOVE_TIMEOUT    = 2 #broj sekundi izmedju poteza
 
@@ -17,7 +17,7 @@ def main():
 
     client.game_join(MAP_NAME)
 
-    print(f"Successfully joined map {client.map_name} as player #{client.id}")
+    print(f"Successfully joined map as player #{client.id}")
 
     player = Player(client)
     
@@ -30,7 +30,6 @@ def main():
             print(f"Game Over, DID WE WIN?")
 
         time.sleep(MOVE_TIMEOUT) #spavaj (x)sekundi
-        print("STEP")
 
 if __name__ == "__main__":
     print("""

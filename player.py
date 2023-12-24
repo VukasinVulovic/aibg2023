@@ -24,6 +24,7 @@ class Player:
     attack_power = INITIAL_ATTACK_POWER
     turn = INITIAL_TURN
     chest_used = False #kovceg otvoren
+    walked_positions = list[GamePosition]()
 
     def __init__(self, client: Client):
         self.__client = client
@@ -35,7 +36,9 @@ class Player:
         self.position = client.game_state.our_pos
 
         chest_pos = self.get_chest_position() #nadji poziciju svog chest-a i idi ka njemu
-        self.seek_target(chest_pos.position)
+        
+        if chest_pos is not None:
+            self.seek_target(chest_pos.position)
 
     def seek_target(self, postition: GamePosition): #postavi cilj pomeranja
         self.target_position = GamePosition(min([postition.q, AXIS_TILE_COUNT]), min(postition.r, AXIS_TILE_COUNT)) #pozicija ili ivica mape
@@ -47,16 +50,18 @@ class Player:
         if self.__client is None:
             raise RuntimeError("Cient not initialized!")
         
-        potential_neighbors = self.__client.get_neighbor_tiles(self.position)
-        
+        potential_neighbors = self.__client.get_neighbor_tiles(self.position) #uzmi komsije
         neighbors = []
         
         for n in potential_neighbors:
-            if self.is_legal(Action.MOVE, n.position): #da li mogu da stanem na polje
+            if self.is_legal(Action.MOVE, n.position) and not self.has_walked_on_position(n.position): #da li mogu da stanem na polje
                 neighbors.append(n)
         
         #add leaves logic
         #add logic if enemy close and not attack, avoid
+
+        if len(neighbors) == 0:
+            return potential_neighbors[0]
 
         return min(neighbors, key=lambda n: tile_dist(n.position, end_position)) #prvi komsija po najmanjoj distanci od cilja
 
@@ -74,7 +79,7 @@ class Player:
         
         tiles = list(filter(lambda t: t.entity_on_tile is not None and t.entity_on_tile.entity_type is EntityType.CHEST and t.entity_on_tile.attrs["idx"] is self.__client.id, self.__client.tiles.values())) #polja sa nasim chestom
 
-        return tiles[0] #privo i jedino polje sa nsim chestom
+        return tiles[0] if len(tiles) > 0 else None #privo i jedino polje sa nsim chestom
 
     def is_legal(self, action: Action, position: GamePosition) -> bool:
         if self.__client is None:
@@ -115,6 +120,13 @@ class Player:
     def run_to_finish(self): #juri na centar (pobedjujemo)
         self.seek_target(GamePosition(0, 0))
 
+    def has_walked_on_position(self, pos: GamePosition): #da li je bio na poziciji
+        for wp in self.walked_positions:
+            if pos_eq(pos, wp):
+                return True
+            
+        return False
+
     def handle_state(self): #logika za trenutno stanje
         us = self.__client.get_us() #mi
 
@@ -146,13 +158,14 @@ class Player:
                     self.state = self.state = PlayerState.EVADE
                 else: #nastavi dalje                    
                     if not self.chest_used: #ako kovceg nije otvoren
-                        chest_pos = self.get_chest_position() #nadji kovceg
+                        if chest_pos is not None:
+                            chest_pos = self.get_chest_position() #nadji kovceg
 
-                        if not self.__client.get_tile(chest_pos).entity_on_tile.attrs["used"]: #prava provera
-                            self.state = PlayerState.SEEK
-                            self.target_position = chest_pos
-                        else:
-                            self.chest_used = True
+                            if not self.__client.get_tile(chest_pos).entity_on_tile.attrs["used"]: #prava provera
+                                self.state = PlayerState.SEEK
+                                self.target_position = chest_pos
+                            else:
+                                self.chest_used = True
                     else: #ako smo uzemi mac, ubi najslabijeg protivnika
                         weakling = self.__client.get_weakling() #najslabiji protivnik
                         self.target_position = weakling.position
@@ -165,6 +178,12 @@ class Player:
         match self.state:
             case PlayerState.SEEK:
                 next_tile = self.get_next_movable_tile(self.target_position) #sledece polje ka cilju na koje moze da se stane
+                
+                if len(self.walked_positions) > 5:
+                    self.walked_positions.clear()
+
+                self.walked_positions.append(next_tile.position)
+                
                 self.__client.player_do_action(Action.MOVE, next_tile.position) #idi na sledece polje
 
             case PlayerState.ATTACK:

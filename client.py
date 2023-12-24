@@ -67,7 +67,10 @@ class Client:
             else: #neka druga greska
                 raise RuntimeError(f"Could not create game {res.status_code} {res.text}")
 
-    def __parse_state_response(self, res_body: dict) -> GameState:
+    def __parse_state_response(self, res_body: dict) -> GameState | None:
+        if "gameState" not in res_body or "gameState" is None:
+            return None
+
         res_body = json.loads(res_body["gameState"])
         
         is_over = res_body["skullWin"]
@@ -139,10 +142,12 @@ class Client:
                 can_iteract=entity_type in (EntityType.CHEST, EntityType.PLAYER)
             )
 
+
+
         return GameState(
             our_pos=our_pos,
             player_turn=res_body["turn"], 
-            game_turn=res_body["gameTurn"], 
+            game_turn=res_body["turn"], 
             is_over=is_over, 
             tiles=tiles, 
             bots=bots
@@ -159,13 +164,22 @@ class Client:
                 self.__join_game()
 
             raise RuntimeError(f"Could not join game, {res.status_code}, {res.text}")
-
         res_json = res.json()
+
+        # with open("./sample_data/gameState.json", "r") as f:
+        #     res_json = json.loads(f.read())
+
+
+        # with open("./sample_data/gameState-temp.json", "w+") as f:
+        #     f.write(json.dumps(res_json))
 
         self.id = res_json["playerIdx"]
 
         state = self.__parse_state_response(res_json)
-        self.game_state = state
+
+        if state is not None:
+            self.game_state = state
+
         self.tiles = self.game_state.tiles
     
     def game_join(self, map_name): #kreiraj igricu, udji
@@ -182,6 +196,7 @@ class Client:
             self.__join_game()
 
     def player_do_action(self, action: Action, position: GamePosition): #posalji zahtev da se uradi akcija
+        # print("Target" + str(position))
         res = requests.post(url=f"http://{self.__server_address}/game/doAction", json={
             "action": f"{action.value},{position.q},{position.r}"
         }, headers={
@@ -190,39 +205,55 @@ class Client:
         })
 
         if res.status_code not in (200, 202, 201):
-            raise RuntimeError(f"Could not do action {action.value} at {position},  {res.status_code} {res.text}")
+            if res.status_code == 400 and "završena" in res.json()["message"]: #ako je kraj, zavrsili smo
+                if self.game_state is not None:
+                    self.game_state.is_over = True
+                else:
+                    raise RuntimeError(f"Game over, did we win?")
+            else:
+                raise RuntimeError(f"Could not do action {action.value} at {position}, {res.status_code} {res.text}")
 
         res_json = res.json()
 
+        # with open("./sample_data/gameState-temp.json", "r") as f:
+        #     res_json = json.loads(f.read())
+
         if "gameState" not in res_json:
-            raise IllegalActionError(action.value, game_message=res_json["message"], postition=position)
+            if "završena." in res_json["message"]: #ako ne vrati game state, proveri da li je igra zavrsena
+                if self.game_state is not None:
+                    self.game_state.is_over = True
+            # else: #ilegalni potez je uradjen
+            #     raise IllegalActionError(action.value, game_message=res_json["message"], postition=position)
         
-        state = self.__parse_state_response(res_json)
-        self.game_state = state
-        self.tiles = self.game_state.tiles
+        state = self.__parse_state_response(res_json) #parsuj odogovor sa game state
+
+        if state is not None:
+            self.game_state = state
+            self.tiles = self.game_state.tiles
     
     def get_tile(self, position: GamePosition) -> Tile: #uzmi polje po poziciji
         return self.tiles[tile_id(position)]
     
     def is_out_of_bounds(self, position: GamePosition) -> bool: #da li je van polja igre
-        half_axis = AXIS_TILE_COUNT//2
-        return not (abs(position.q) <= half_axis and abs(position.r) <= half_axis)
+        id = tile_id(position)
+
+        return id not in self.tiles #da li se polje nalazi u recniku polja
 
     def get_us(self) -> Bot: #vrati trenutnog bota kao objekat iz game state
         if self.game_state is None:
             raise ValueError("State is null")
         
-        return next(filter(lambda b: b.id == self.id, self.game_state.bots))
+        return next(filter(lambda b: b.id == self.id, self.game_state.bots)) #ako je bot sa nasim id
         # our_tile_id = tile_id(self.game_state.our_pos)
         # return self.tiles[our_tile_id].entity_on_tile
 
     def get_neighbor_tiles(self, position: GamePosition) -> list[Tile]: #pronadji spojena polja
         neighbors = []
 
-        for d in [Direction.BOTTOM_LEFT, Direction.BOTTOM_RIGHT, Direction.LEFT, Direction.RIGHT, Direction.TOP_RIGHT, Direction.TOP_LEFT]:
-            pos = translate_pos(position, d)
+        for d in [Direction.BOTTOM_LEFT, Direction.BOTTOM_RIGHT, Direction.LEFT, Direction.RIGHT, Direction.TOP_RIGHT, Direction.TOP_LEFT]: #za svaki smer
+            pos = translate_pos(position, d) #izracunaj sledecu poziciju
 
-            if not self.is_out_of_bounds(pos): #if not out of bounds
+            if not self.is_out_of_bounds(pos) and not pos_eq(pos, position): #ako pozicija nije van mape i nije nasa, dodaj u komsije
                 neighbors.append(self.get_tile(pos))
 
         return neighbors
@@ -231,7 +262,8 @@ class Client:
         if self.game_state is None:
             raise ValueError("State is null")
 
-        us = self.get_us()
+        us = self.get_us() #mi
+
         other_bots = list(filter(lambda b: b.id is not self.id, self.game_state.bots)) #uzmi botove bez nas
         bots = sorted(other_bots, key=lambda b: get_strength_score(us, b), reverse=True) #sortiraj po najslabijima (gde je nas score veci)
 
